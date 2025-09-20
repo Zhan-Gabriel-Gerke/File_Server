@@ -4,39 +4,24 @@ import java.io.IOException;
 import java.net.InetAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-
 public class Main {
 
     // Основной серверный сокет
     private static ServerSocket server;
-    // Пул потоков для обработки клиентов
-    private static ExecutorService executor;
 
     public static void main(String[] args) throws IOException {
         System.out.println("Server started!");
         String address = "127.0.0.1"; // Адрес сервера (локальный)
         int port = 23456; // Порт сервера
 
-        // Создаём серверный сокет и пул потоков
+        // Создаём серверный сокет
         server = new ServerSocket(port, 50, InetAddress.getByName(address));
-        executor = Executors.newFixedThreadPool(10); // одновременно до 10 клиентов
-
         try {
             // Основной цикл сервера — слушает клиентов, пока сервер "жив"
             while (ServerConnection.isServerRunning()) {
                 // Ждём подключения клиента
                 Socket clientSocker = server.accept();
-
-                // Передаём обработку клиента в отдельный поток из пула
-                executor.execute(() -> {
-                    try {
-                        start(clientSocker); // Запускаем обработку клиента
-                    } catch (IOException e) {
-                        System.out.println("Exception: outside " + e);
-                    }
-                });
+                start(clientSocker); // Запускаем обработку клиента
             }
         } catch (IOException e) {
             // Если сервер был остановлен намеренно — не выводим ошибку
@@ -45,6 +30,30 @@ public class Main {
             } else {
                 throw e; // если ошибка не связана с остановкой — пробрасываем дальше
             }
+        }
+    }
+    public static void start(Socket clientSocker) throws IOException {
+        // Создаём объект для удобного общения с клиентом
+        ServerConnection connection = new ServerConnection(clientSocker);
+        // Создаём объект базы данных (работа с JSON-хранилищем)
+
+        // Пока соединение открыто — читаем запросы
+        while (!connection.isClosed()) {
+            String receivedJson;
+            try {
+                receivedJson = connection.getInput(); // читаем строку JSON от клиента
+                System.out.println("Received: " + receivedJson);
+            } catch (IOException e) {
+                connection.close(); // если ошибка — закрываем соединение
+                break;
+            }
+
+
+            // Отправляем клиенту ответ
+            connection.sendMessage("All files were sent!");
+            System.out.println("Sent: All files were sent!");
+            // Закрываем соединение после обработки
+            connection.close();
         }
     }
         /*Scanner sc = new Scanner(System.in);
@@ -72,30 +81,7 @@ public class Main {
         }*/
 
 
-public static void start(Socket clientSocker) throws IOException {
-    // Создаём объект для удобного общения с клиентом
-    ServerConnection connection = new ServerConnection(clientSocker);
-    // Создаём объект базы данных (работа с JSON-хранилищем)
 
-    // Пока соединение открыто — читаем запросы
-    while (!connection.isClosed()) {
-        String receivedJson;
-        try {
-            receivedJson = connection.getInput(); // читаем строку JSON от клиента
-            System.out.println("Received: " + receivedJson);
-        } catch (IOException e) {
-            connection.close(); // если ошибка — закрываем соединение
-            break;
-        }
-
-
-        // Отправляем клиенту ответ
-        connection.sendMessage("All files were sent!");
-        System.out.println("Sent: All files were sent!");
-        // Закрываем соединение после обработки
-        connection.close();
-    }
-}
 
 
     /*public static boolean checkTheName(String name){
