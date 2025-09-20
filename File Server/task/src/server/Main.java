@@ -1,13 +1,10 @@
 package server;
 
-import java.io.IOException;
+import java.io.*;
 import java.net.InetAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
 public class Main {
-
-    // Основной серверный сокет
-    private static ServerSocket server;
 
     public static void main(String[] args) throws IOException {
         System.out.println("Server started!");
@@ -15,7 +12,8 @@ public class Main {
         int port = 23456; // Порт сервера
 
         // Создаём серверный сокет
-        server = new ServerSocket(port, 50, InetAddress.getByName(address));
+        // Основной серверный сокет
+        ServerSocket server = new ServerSocket(port, 50, InetAddress.getByName(address));
         try {
             // Основной цикл сервера — слушает клиентов, пока сервер "жив"
             while (ServerConnection.isServerRunning()) {
@@ -35,120 +33,104 @@ public class Main {
     public static void start(Socket clientSocker) throws IOException {
         // Создаём объект для удобного общения с клиентом
         ServerConnection connection = new ServerConnection(clientSocker);
-        // Создаём объект базы данных (работа с JSON-хранилищем)
 
         // Пока соединение открыто — читаем запросы
         while (!connection.isClosed()) {
-            String receivedJson;
+            String receivedRequest;
             try {
-                receivedJson = connection.getInput(); // читаем строку JSON от клиента
-                System.out.println("Received: " + receivedJson);
+                receivedRequest = connection.getInput();
             } catch (IOException e) {
                 connection.close(); // если ошибка — закрываем соединение
                 break;
             }
 
-
-            // Отправляем клиенту ответ
-            connection.sendMessage("All files were sent!");
-            System.out.println("Sent: All files were sent!");
-            // Закрываем соединение после обработки
-            connection.close();
-        }
-    }
-        /*Scanner sc = new Scanner(System.in);
-        label:
-        while(true){
-            String command = sc.nextLine();
-            String[] commands = command.split(" ");
-            switch (commands[0]) {
-                case "exit":
-                    deleteFolder();
-                    break label;
-                case "add":
-                    //add
-                    createFile(commands[1]);
-                    break;
-                case "delete":
-                    //delete
-                    deleteFile(commands[1]);
-                    break;
-                case "get":
-                    //get
-                    getFile(commands[1]);
-                    break;
-            }
-        }*/
-
-
-
-
-
-    /*public static boolean checkTheName(String name){
-        for (int i = 1; i < 11; i++){
-            if (name.equals("file" + i)){
-                return true;
+            label:
+            while (true) {
+                String[] respond = {"", ""};
+                String[] commands = receivedRequest.split(" ", 3);
+                switch (commands[0]) {
+                    case "EXIT":
+                        break label;
+                    case "PUT":
+                        //add
+                        respond[0] = createFile(commands[1], commands[3]);
+                        break;
+                    case "DELETE":
+                        //delete
+                        respond[0] = deleteFile(commands[1]);
+                        break;
+                    case "GET":
+                        //get
+                        respond = getFile(commands[1]);
+                        break;
+                }
+                String respondToClient;
+                if (commands[0].equals("GET")) {
+                    respondToClient = respond[0] + " FILE_CONTENT " + respond[1];
+                } else{
+                    respondToClient = respond[0];
+                }
+                // Отправляем клиенту ответ
+                connection.sendMessage(respondToClient);
+                // Закрываем соединение после обработки
+                connection.close();
             }
         }
-        return false;
     }
-
-    public static void createFile(String name) {
+    public static String createFile(String name, String content) {
         File path = new File("C:\\Users\\zange\\IdeaProjects\\File Server\\File Server\\task\\src\\server\\data");
         File file = new File(path,name);
         try {
-            if (checkTheName(name)){
-                if (!file.exists() && file.createNewFile()) {
-                    System.out.println("The file " + file.getName() + " added successfully");
-                } else {
-                    System.out.println("Cannot add the file " + file.getName());
-                }
+            if (!file.exists() && file.createNewFile()) {
+                FileWriter writer = new FileWriter(file);
+                writer.write(content);
+                writer.close();
+                return "200";//OK
             } else {
-                System.out.println("Cannot add the file " + file.getName());
+                return "403";//Error
             }
         } catch (IOException e) {
-            System.out.println("An error occurred.");
+            return "403";//Error
         }
     }
 
-    public static void deleteFile(String name) {
+    public static String deleteFile(String name) {
         File path = new File("C:\\Users\\zange\\IdeaProjects\\File Server\\File Server\\task\\src\\server\\data");
         File file = new File(path,name);
         try {
             if (file.delete()){
-                System.out.println("The file " + file.getName() + " was deleted");
+                return "200";//OK
             } else {
-                System.out.println("The file " + file.getName() + " not found");
+                return "404";//Error
             }
         } catch (Exception e) {
-            System.out.println("An error occurred.");
+            return "404";//Error
         }
     }
 
-    public static void getFile(String name) {
+    public static String[] getFile(String name) {
         File path = new File("C:\\Users\\zange\\IdeaProjects\\File Server\\File Server\\task\\src\\server\\data");
         File file = new File(path,name);
+        String[] result = new String[2];
         try {
             if (file.exists() && file.isFile()) {
-                System.out.println("The file " + file.getName() + " was sent");
+                result[0] = "200";//OK
+                try{
+                    BufferedReader reader = new BufferedReader(new FileReader(file));
+                    while (reader.readLine() != null){
+                        result[1] += reader.readLine() + "\n";
+                    }
+                } catch (FileNotFoundException e) {
+                    throw new RuntimeException(e);
+                }
+
             } else {
-                System.out.println("The file " + file.getName() + " not found");
+                result[0] = "404";//Error
             }
         } catch (Exception e){
-            System.out.println("An error occurred.");
+            result[0] = "404";//Error
         }
+        return result;
     }
 
-    public static void deleteFolder(){
-        File path = new File("C:\\Users\\zange\\IdeaProjects\\File Server\\File Server\\task\\src\\server\\data");
-
-        String[] fileNames = path.list();
-        if (fileNames != null){
-            for (String fileName : fileNames) {
-                File file = new File(path,fileName);
-                file.delete();
-            }
-        }
-    }
-}*/
 }
