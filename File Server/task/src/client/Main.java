@@ -18,14 +18,28 @@ public class Main {
         } else if (actionString.equals("1") || actionString.equals("2") || actionString.equals("3")){
             action = Integer.parseInt(actionString);
         }
-        System.out.print("Enter filename: ");
-        String name = sc.next();
+        String nameKey = "";
         String content = "";
-        if (action == 2){
+        String specialForlder = "";
+        if (action == 1 || action == 3){
+            System.out.printf("Do you want to %s the file by name or by id (1 - name, 2 - id):", action == 1 ? "get" : "delete");
+            int nameOrId = sc.nextInt();
+            if (nameOrId == 1){
+                System.out.print("Enter filename: ");
+                nameKey = sc.next();
+            } else if (nameOrId == 2){
+                System.out.print("Enter id: ");
+                nameKey = sc.next();
+            }
+        } else if (action == 2){
+            System.out.print("Enter name of the file:");
+            nameKey = sc.next();
             System.out.print("Enter file content: ");
             content = sc.next();
+            System.out.print("Enter name of the file to be saved on server: ");
+            specialForlder = sc.next();
         }
-        String request = createRequest(action, name, content);
+        String request = createRequest(action, nameKey, content, specialForlder);
         try{
             connection.sendMessage(request);
             System.out.println("The request was sent.");
@@ -68,14 +82,25 @@ public class Main {
         return result;
     }
 
-    public static String createRequest(int action, String name, String content) {
-        String request = switch (action) {
-            case 0 -> "EXIT";
-            case 1 -> "GET " + name;
-            case 2 -> "PUT " + name + " FILE_CONTENT " + content;
-            case 3 -> "DELETE " + name;
-            default -> "Error";
-        };
+    public static String createRequest(int action, String name, String content, String specialForlder) {
+        String request;
+        if (name.matches("\\d+")){
+            request = switch (action) {
+                case 0 -> "EXIT";
+                case 1 -> "GET " + "BY_NAME " + name;//2
+                case 2 -> "PUT " + name + " PATH " + specialForlder + " FILE_CONTENT" + content;//5
+                case 3 -> "DELETE " + "BY_NAME "+ name;//2
+                default -> "ERROR";
+            };
+        }else{
+            request = switch (action) {
+                case 0 -> "EXIT";
+                case 1 -> "GET " + "BY_ID " + name;//2
+                case 2 -> "PUT " + name  + " PATH " + specialForlder + " FILE_CONTENT " + content;//5
+                case 3 -> "DELETE " + "BY_ID "+ name;//2
+                default -> "ERROR";
+            };
+        }
         return request;
     }
 }
