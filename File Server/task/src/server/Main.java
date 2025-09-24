@@ -6,6 +6,8 @@ import java.io.*;
 import java.net.InetAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.util.Map;
 import java.util.TreeMap;
 
@@ -51,10 +53,11 @@ public class Main {
                 connection.close(); // если ошибка — закрываем соединение
                 break;
             }
-            String[] respond = {"", ""};
+            byte[] fileBytes = new byte[0];
+            String respond = "";
             switch (receivedRequest.split("\\s+")[0]) {
                 case "EXIT":
-                    savaTheMap();
+                    saveTheMap();
                     connection.sendMessage("200 Server shutting down");
                     ServerConnection.stopServer();
                     server.close();
@@ -62,42 +65,38 @@ public class Main {
                     return;
                 case "PUT":
                     //add
-                    respond[0] = createFile(receivedRequest);
+                    byte[] file = connection.getFile();
+                    respond = createFile(receivedRequest, file);
                     break;
                 case "DELETE":
                     //delete
-                    respond[0] = deleteFile(receivedRequest);
+                    respond = deleteFile(receivedRequest);
                     break;
                 case "GET":
                     //get
-                    respond = getFile(receivedRequest);
+                    fileBytes = getFile(receivedRequest);
                     break;
             }
-            String respondToClient;
-            if (receivedRequest.split("\\s+")[0].equals("GET")) {
-                respondToClient = respond[0] + " FILE_CONTENT " + respond[1];
-            } else{
-                respondToClient = respond[0];
-            }
             // Отправляем клиенту ответ
-            connection.sendMessage(respondToClient);
+                if (receivedRequest.split("\\s+")[0].equals("GET")) {
+                    if (fileBytes != null) {
+                    connection.sendMessage("200");//OK
+                    connection.sendFile(fileBytes);
+                    }
+                } else {
+                    connection.sendMessage("404");//ERROR
+                }
             // Закрываем соединение после обработки
             connection.close();
             }
         }
-    private static String createFile(String receivedRequest) {
-        String[] commands = receivedRequest.split(" ", 6);
+    private static String createFile(String receivedRequest, byte[] fileData) {
+        String[] commands = receivedRequest.split(" ", 3);
         File path = new File("C:\\Users\\zange\\IdeaProjects\\File Server\\File Server\\task\\src\\server\\data");
-        File specialForlder = new File(path ,commands[3]);
-        if (!specialForlder.exists()){
-            specialForlder.mkdirs();
-        }
-        File file = new File(specialForlder,commands[1]);
+        File file = new File(path,commands[2]);
         try {
             if (!file.exists() && file.createNewFile()) {
-                FileWriter writer = new FileWriter(file);
-                writer.write(commands[5]);
-                writer.close();
+                Files.write(Paths.get(file.getPath()), fileData);
                 int id = addRecordToMap(file);
                 return "200" + " Id " + id;//OK
             } else {
@@ -129,7 +128,7 @@ public class Main {
         }
     }
 
-    private static String[] getFile(String receivedRequest) {
+    private static byte[] getFile(String receivedRequest) {
         String[] commands = receivedRequest.split(" ", 3);
         File file;
         if (commands[1].equals("BY_NAME")){
@@ -143,26 +142,15 @@ public class Main {
         } else {
             file = getFileById(Integer.parseInt(commands[2]));
         }
-        String[] result = {"", ""};
         try {
             if (file.exists() && file.isFile()) {
-                result[0] = "200";//OK
-                try{
-                    BufferedReader reader = new BufferedReader(new FileReader(file));
-                    String line = "";
-                    while ((line = reader.readLine()) != null){
-                        result[1] += line + "\n";
-                    }
-                } catch (FileNotFoundException e) {
-                    throw new RuntimeException(e);
-                }
+                //here all
+                return Files.readAllBytes(file.toPath());
             } else {
-                result[0] = "404";//Error
             }
-        } catch (Exception e){
-            result[0] = "404";//Error
+        } catch (Exception ignored){
         }
-        return result;
+        return null;
     }
     private static int addRecordToMap(File file){
         Map.Entry<Integer, File> lastEntry = ((TreeMap<Integer, File>) treeMap).lastEntry();
@@ -172,6 +160,7 @@ public class Main {
         }
         int id = lastEntry.getKey() + 1;
         treeMap.put(id, file);
+        saveTheMap();//saves the map after every file creation
         return id;
     }
 
@@ -179,7 +168,7 @@ public class Main {
         return treeMap.get(id);
     }
 
-    private static void savaTheMap(){
+    private static void saveTheMap(){
         ObjectMapper mapper = new ObjectMapper();
         File file = new File("map.json");
 

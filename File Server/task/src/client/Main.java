@@ -1,11 +1,15 @@
 package client;
 
+import java.io.File;
 import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.util.Scanner;
 
 public class Main {
     public static void main(String[] args) throws IOException {
         final ClientConnection connection = ClientConnection.startClient();
+        final File file = new File("C:\\Users\\zange\\IdeaProjects\\File Server\\File Server\\task\\src\\client\\data");
         final Scanner sc = new Scanner(System.in);
         System.out.print("Enter action (1 - get a file, 2 - create a file, 3 - delete a file): ");
         String actionString = sc.nextLine();
@@ -18,7 +22,6 @@ public class Main {
             action = Integer.parseInt(actionString);
         }
         String nameKey = "";
-        String content = "";
         String specialForlder = "";
         if (action == 1 || action == 3){
             System.out.printf("Do you want to %s the file by name or by id (1 - name, 2 - id): ", action == 1 ? "get" : "delete");
@@ -34,33 +37,63 @@ public class Main {
         } else if (action == 2){
             System.out.print("Enter name of the file: ");
             nameKey = sc.nextLine();
-            System.out.print("Enter file content: ");
-            content = sc.nextLine();
             System.out.print("Enter name of the file to be saved on server: ");
             specialForlder = sc.nextLine();
         }
-        String request = createRequest(action, nameKey, content, specialForlder);
-        try{
-            connection.sendMessage(request);
-            System.out.println("The request was sent.");
-        } catch (Exception e){
-            System.out.println("An error occurred.");
+
+        if (action == 1 || action == 3){
+            String request = createRequest(action, nameKey);
+            try{
+                connection.sendMessage(request);
+                System.out.println("The request was sent.");
+            } catch (Exception e){
+                System.out.println("An error occurred.");
+            }
         }
-        String respond = connection.getInput();
-        String result = convertRespond(respond, action);
-        System.out.println(result);
-        connection.close();
+        else if (action == 2){
+            if (specialForlder.isEmpty()){
+                specialForlder = nameKey;
+            }
+            String request = createRequest(action, specialForlder);
+            try{
+                connection.sendMessage(request);
+                File finalFile = new File(file, nameKey);
+                //checker for file existence
+                byte[] dataBytes = Files.readAllBytes(finalFile.toPath());
+                connection.sendFile(dataBytes);
+                System.out.println("The request was sent.");
+            } catch (Exception e){
+                System.out.println("An error occurred.");
+            }
+        }
+        String respond = connection.getMessage();
+        if (action == 1){
+            if (respond.equals("200")){
+                byte[] byteFile = connection.getFile();
+                System.out.print("The file was downloaded! Specify a name for it:");
+                String name = sc.nextLine();
+                if (name.isEmpty()){
+                    name = nameKey;
+                }
+                Files.write(Paths.get(file.getPath(), name), byteFile);
+            }
+            String result = convertRespond(respond, action);
+            System.out.println(result);
+            connection.close();
+        } else if (action == 2 || action == 3){
+            String result = convertRespond(respond, action);
+            System.out.println(result);
+            connection.close();
+            }
     }
     public static String convertRespond(String respond, int action){
         String result = "";
         boolean isSuccess = respond.startsWith("200");
-
         if (action == 1){
             //GET
             if (isSuccess){
-                int index = respond.indexOf("FILE_CONTENT") + 13;
-                result = "The content of the file is: " + respond.substring(index);
-            } else {
+                result = "File saved on the hard drive!";
+            } else if (respond.startsWith("404")){
                 result = "The response says that the file was not found!";
             }
         } else if (action == 2){
@@ -82,22 +115,21 @@ public class Main {
         return result;
     }
 
-    public static String createRequest(int action, String name, String content, String specialForlder) {
+    public static String createRequest(int action, String name) {
         String request;
         if (name.matches("\\d+")){
             request = switch (action) {
                 case 0 -> "EXIT";
                 case 1 -> "GET " + "BY_ID " + name;//2
-                case 2 -> "PUT " + name  + " PATH " + specialForlder + " FILE_CONTENT " + content;//5
+                case 2 -> "PUT" + " SPECIAL_NAME " + name;
                 case 3 -> "DELETE " + "BY_ID "+ name;//2
                 default -> "ERROR";
             };
-
         }else{
             request = switch (action) {
                 case 0 -> "EXIT";
                 case 1 -> "GET " + "BY_NAME " + name;//2
-                case 2 -> "PUT " + name + " PATH " + specialForlder + " FILE_CONTENT " + content;//5
+                case 2 -> "PUT" + " SPECIAL_NAME " + name;
                 case 3 -> "DELETE " + "BY_NAME "+ name;//2
                 default -> "ERROR";
             };

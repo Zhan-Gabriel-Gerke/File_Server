@@ -18,14 +18,28 @@ class ClientConnection {
     public void sendMessage(String message) throws IOException{
         output.writeUTF(message);
     }
-    public String getInput() throws IOException {
+
+    public String getMessage() throws IOException {
         return input.readUTF();
+    }
+
+    public void sendFile(byte[] fileData) throws IOException {
+        output.writeInt(fileData.length);
+        output.write(fileData);
+    }
+
+    public byte[] getFile() throws IOException {
+        int length = input.readInt();
+        byte[] fileData = new byte[length];
+        input.readFully(fileData, 0, fileData.length);
+        return fileData;
     }
 
     public void close() throws IOException {
         output.close();
         input.close();
     }
+
     public static ClientConnection startClient() throws IOException {
         System.out.println("Client started!");
         String address = "127.0.0.1";

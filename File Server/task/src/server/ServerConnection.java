@@ -30,6 +30,18 @@ class ServerConnection{
         output.writeUTF(message);
     }
 
+    public void sendFile(byte[] fileData) throws IOException {
+        output.writeInt(fileData.length);
+        output.write(fileData);
+    }
+
+    public byte[] getFile() throws IOException {
+        int length = input.readInt();
+        byte[] fileData = new byte[length];
+        input.readFully(fileData, 0, fileData.length);
+        return fileData;
+    }
+
     public static void stopServer() {
         running = false;
     }
