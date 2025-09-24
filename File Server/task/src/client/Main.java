@@ -1,6 +1,5 @@
 package client;
 
-
 import java.io.IOException;
 import java.util.Scanner;
 
@@ -52,7 +51,6 @@ public class Main {
         System.out.println(result);
         connection.close();
     }
-
     public static String convertRespond(String respond, int action){
         String result = "";
         boolean isSuccess = respond.startsWith("200");

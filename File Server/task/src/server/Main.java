@@ -1,4 +1,6 @@
 package server;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 import java.io.*;
 import java.net.InetAddress;
@@ -8,12 +10,14 @@ import java.util.Map;
 import java.util.TreeMap;
 
 public class Main {
-    private static final Map<Integer, File> treeMap = new TreeMap<>();
+
+    private static final Map<Integer, File> treeMap = takeMap();
+    private static ServerSocket server;
     public static void main(String[] args) throws IOException {
         System.out.println("Server started!");
         String address = "127.0.0.1"; // Адрес сервера (локальный)
         int port = 23456; // Порт сервера
-        ServerSocket server = new ServerSocket(port, 50, InetAddress.getByName(address));
+        server = new ServerSocket(port, 50, InetAddress.getByName(address));
         try {
             // Основной цикл сервера — слушает клиентов, пока сервер "жив"
             while (ServerConnection.isServerRunning()) {
@@ -33,14 +37,12 @@ public class Main {
                 //System.out.println("Server stopped!");
             }
         }
-
     }
     private static void start(Socket clientSocker) throws IOException {
         // Создаём объект для удобного общения с клиентом
         ServerConnection connection = new ServerConnection(clientSocker);
 
         // Пока соединение открыто — читаем запросы
-        labelbreak:
         while (!connection.isClosed()) {
             String receivedRequest;
             try {
@@ -52,8 +54,12 @@ public class Main {
             String[] respond = {"", ""};
             switch (receivedRequest.split("\\s+")[0]) {
                 case "EXIT":
+                    savaTheMap();
+                    connection.sendMessage("200 Server shutting down");
+                    ServerConnection.stopServer();
+                    server.close();
                     connection.close();
-                    break labelbreak;
+                    return;
                 case "PUT":
                     //add
                     respond[0] = createFile(receivedRequest);
@@ -173,11 +179,32 @@ public class Main {
         return treeMap.get(id);
     }
 
-    /*private static boolean savaTheMap(){
-        ObjectMapper mapper = new ObjectMapper
+    private static void savaTheMap(){
+        ObjectMapper mapper = new ObjectMapper();
+        File file = new File("map.json");
+
+        try{
+            mapper.writerWithDefaultPrettyPrinter().writeValue(file, treeMap);
+        } catch (IOException ignored){
+        }
     }
 
     private static Map<Integer, File> takeMap(){
-
-    }*/
+        ObjectMapper mapper = new ObjectMapper();
+        File file = new File("map.json");
+        if (!file.exists() || file.length() == 0){
+            return new TreeMap<>();
+        }
+        try{
+            Map<Integer, String> tempMap = mapper.readValue(file, new TypeReference<>() {
+            });
+            Map<Integer, File> resultMap = new TreeMap<>();
+            for (Map.Entry<Integer, String> entry : tempMap.entrySet()){
+                resultMap.put(entry.getKey(), new File(entry.getValue()));
+            }
+            return resultMap;
+        } catch (IOException e){
+            return new TreeMap<>();
+        }
+    }
 }
