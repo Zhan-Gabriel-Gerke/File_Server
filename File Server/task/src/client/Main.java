@@ -22,22 +22,23 @@ public class Main {
         String content = "";
         String specialForlder = "";
         if (action == 1 || action == 3){
-            System.out.printf("Do you want to %s the file by name or by id (1 - name, 2 - id):", action == 1 ? "get" : "delete");
+            System.out.printf("Do you want to %s the file by name or by id (1 - name, 2 - id): ", action == 1 ? "get" : "delete");
             int nameOrId = sc.nextInt();
+            sc.nextLine();
             if (nameOrId == 1){
                 System.out.print("Enter filename: ");
-                nameKey = sc.next();
+                nameKey = sc.nextLine();
             } else if (nameOrId == 2){
                 System.out.print("Enter id: ");
-                nameKey = sc.next();
+                nameKey = sc.nextLine();
             }
         } else if (action == 2){
-            System.out.print("Enter name of the file:");
-            nameKey = sc.next();
+            System.out.print("Enter name of the file: ");
+            nameKey = sc.nextLine();
             System.out.print("Enter file content: ");
-            content = sc.next();
+            content = sc.nextLine();
             System.out.print("Enter name of the file to be saved on server: ");
-            specialForlder = sc.next();
+            specialForlder = sc.nextLine();
         }
         String request = createRequest(action, nameKey, content, specialForlder);
         try{
@@ -59,7 +60,7 @@ public class Main {
         if (action == 1){
             //GET
             if (isSuccess){
-                int index = respond.indexOf("FILE_CONTENT") + 10;
+                int index = respond.indexOf("FILE_CONTENT") + 13;
                 result = "The content of the file is: " + respond.substring(index);
             } else {
                 result = "The response says that the file was not found!";
@@ -67,7 +68,8 @@ public class Main {
         } else if (action == 2){
             //PUT
             if (isSuccess){
-                result = "File was created successfully.";
+                int id = Integer.parseInt(respond.substring(respond.indexOf(" Id ") + 4));
+                result = "Response says that file is saved! ID = " + id;
             } else {
                 result = "The response says that the file was not found!";
             }
@@ -87,17 +89,18 @@ public class Main {
         if (name.matches("\\d+")){
             request = switch (action) {
                 case 0 -> "EXIT";
-                case 1 -> "GET " + "BY_NAME " + name;//2
-                case 2 -> "PUT " + name + " PATH " + specialForlder + " FILE_CONTENT" + content;//5
-                case 3 -> "DELETE " + "BY_NAME "+ name;//2
-                default -> "ERROR";
-            };
-        }else{
-            request = switch (action) {
-                case 0 -> "EXIT";
                 case 1 -> "GET " + "BY_ID " + name;//2
                 case 2 -> "PUT " + name  + " PATH " + specialForlder + " FILE_CONTENT " + content;//5
                 case 3 -> "DELETE " + "BY_ID "+ name;//2
+                default -> "ERROR";
+            };
+
+        }else{
+            request = switch (action) {
+                case 0 -> "EXIT";
+                case 1 -> "GET " + "BY_NAME " + name;//2
+                case 2 -> "PUT " + name + " PATH " + specialForlder + " FILE_CONTENT " + content;//5
+                case 3 -> "DELETE " + "BY_NAME "+ name;//2
                 default -> "ERROR";
             };
         }

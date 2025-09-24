@@ -8,36 +8,39 @@ import java.util.Map;
 import java.util.TreeMap;
 
 public class Main {
-
     private static final Map<Integer, File> treeMap = new TreeMap<>();
-
     public static void main(String[] args) throws IOException {
         System.out.println("Server started!");
         String address = "127.0.0.1"; // Адрес сервера (локальный)
         int port = 23456; // Порт сервера
-
         ServerSocket server = new ServerSocket(port, 50, InetAddress.getByName(address));
         try {
             // Основной цикл сервера — слушает клиентов, пока сервер "жив"
             while (ServerConnection.isServerRunning()) {
                 // Ждём подключения клиента
                 Socket clientSocker = server.accept();
-                start(clientSocker); // Запускаем обработку клиента
+                new Thread(() -> {
+                    try {
+                        start(clientSocker);
+                    } catch (IOException e) {
+                        throw new RuntimeException(e);
+                    }
+                }).start(); // Запускаем обработку клиента
             }
         } catch (IOException e) {
             // Если сервер был остановлен намеренно — не выводим ошибку
             if (!ServerConnection.isServerRunning()) {
                 //System.out.println("Server stopped!");
-            } else {
-                throw e; // если ошибка не связана с остановкой — пробрасываем дальше
             }
         }
+
     }
     private static void start(Socket clientSocker) throws IOException {
         // Создаём объект для удобного общения с клиентом
         ServerConnection connection = new ServerConnection(clientSocker);
 
         // Пока соединение открыто — читаем запросы
+        labelbreak:
         while (!connection.isClosed()) {
             String receivedRequest;
             try {
@@ -46,41 +49,38 @@ public class Main {
                 connection.close(); // если ошибка — закрываем соединение
                 break;
             }
-
-            label:
-            while (true) {
-                String[] respond = {"", ""};
-                switch (receivedRequest.split("\\s+")[0]) {
-                    case "EXIT":
-                        break label;
-                    case "PUT":
-                        //add
-                        respond[0] = createFile(receivedRequest);
-                        break;
-                    case "DELETE":
-                        //delete
-                        respond[0] = deleteFile(receivedRequest);
-                        break;
-                    case "GET":
-                        //get
-                        respond = getFile(receivedRequest);
-                        break;
-                }
-                String respondToClient;
-                if (receivedRequest.split("\\s+")[0].equals("GET")) {
-                    respondToClient = respond[0] + " FILE_CONTENT " + respond[1];
-                } else{
-                    respondToClient = respond[0];
-                }
-                // Отправляем клиенту ответ
-                connection.sendMessage(respondToClient);
-                // Закрываем соединение после обработки
-                connection.close();
+            String[] respond = {"", ""};
+            switch (receivedRequest.split("\\s+")[0]) {
+                case "EXIT":
+                    connection.close();
+                    break labelbreak;
+                case "PUT":
+                    //add
+                    respond[0] = createFile(receivedRequest);
+                    break;
+                case "DELETE":
+                    //delete
+                    respond[0] = deleteFile(receivedRequest);
+                    break;
+                case "GET":
+                    //get
+                    respond = getFile(receivedRequest);
+                    break;
+            }
+            String respondToClient;
+            if (receivedRequest.split("\\s+")[0].equals("GET")) {
+                respondToClient = respond[0] + " FILE_CONTENT " + respond[1];
+            } else{
+                respondToClient = respond[0];
+            }
+            // Отправляем клиенту ответ
+            connection.sendMessage(respondToClient);
+            // Закрываем соединение после обработки
+            connection.close();
             }
         }
-    }
     private static String createFile(String receivedRequest) {
-        String[] commands = receivedRequest.split("", 5);
+        String[] commands = receivedRequest.split(" ", 6);
         File path = new File("C:\\Users\\zange\\IdeaProjects\\File Server\\File Server\\task\\src\\server\\data");
         File specialForlder = new File(path ,commands[3]);
         if (!specialForlder.exists()){
@@ -103,9 +103,15 @@ public class Main {
     }
 
     private static String deleteFile(String receivedRequest) {
-        String[] commands = receivedRequest.split(" ", 2);
-        File path = new File("C:\\Users\\zange\\IdeaProjects\\File Server\\File Server\\task\\src\\server\\data");
-        File file = new File(path,"name");
+        String[] commands = receivedRequest.split(" ", 3);
+        File file;
+        if (commands[1].equals("BY_NAME")){
+            File path = new File("C:\\Users\\zange\\IdeaProjects\\File Server\\File Server\\task\\src\\server\\data");
+            file = new File(path,commands[2]);
+        } else {
+            file = getFileById(Integer.parseInt(commands[2]));
+        }
+
         try {
             if (file.delete()){
                 return "200";//OK
@@ -118,22 +124,32 @@ public class Main {
     }
 
     private static String[] getFile(String receivedRequest) {
-        String[] commands = receivedRequest.split(" ", 2);
-        File path = new File("C:\\Users\\zange\\IdeaProjects\\File Server\\File Server\\task\\src\\server\\data");
-        File file = new File(path,"name");
-        String[] result = new String[2];
+        String[] commands = receivedRequest.split(" ", 3);
+        File file;
+        if (commands[1].equals("BY_NAME")){
+            if (commands[2].contains("\\"))
+            {
+                int index = commands[2].lastIndexOf("\\");
+                commands[2] = commands[2].substring(0, index) + "\\" + commands[2].substring(index + 1);
+            }
+            File path = new File("C:\\Users\\zange\\IdeaProjects\\File Server\\File Server\\task\\src\\server\\data");
+            file = new File(path,commands[2]);
+        } else {
+            file = getFileById(Integer.parseInt(commands[2]));
+        }
+        String[] result = {"", ""};
         try {
             if (file.exists() && file.isFile()) {
                 result[0] = "200";//OK
                 try{
                     BufferedReader reader = new BufferedReader(new FileReader(file));
-                    while (reader.readLine() != null){
-                        result[1] += reader.readLine() + "\n";
+                    String line = "";
+                    while ((line = reader.readLine()) != null){
+                        result[1] += line + "\n";
                     }
                 } catch (FileNotFoundException e) {
                     throw new RuntimeException(e);
                 }
-
             } else {
                 result[0] = "404";//Error
             }
@@ -156,4 +172,12 @@ public class Main {
     private static File getFileById(int id){
         return treeMap.get(id);
     }
+
+    /*private static boolean savaTheMap(){
+        ObjectMapper mapper = new ObjectMapper
+    }
+
+    private static Map<Integer, File> takeMap(){
+
+    }*/
 }
