@@ -1,6 +1,7 @@
 package server;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import server.network.ServerConnection;
 
 import java.io.*;
 import java.net.InetAddress;
@@ -17,13 +18,11 @@ public class Main {
     private static ServerSocket server;
     public static void main(String[] args) throws IOException {
         System.out.println("Server started!");
-        String address = "127.0.0.1"; // Адрес сервера (локальный)
-        int port = 23456; // Порт сервера
+        final String address = "127.0.0.1"; // Адрес сервера (локальный)
+        final int port = 23456; // Порт сервера
         server = new ServerSocket(port, 50, InetAddress.getByName(address));
         try {
-            // Основной цикл сервера — слушает клиентов, пока сервер "жив"
             while (ServerConnection.isServerRunning()) {
-                // Ждём подключения клиента
                 Socket clientSocker = server.accept();
                 new Thread(() -> {
                     try {
@@ -31,26 +30,22 @@ public class Main {
                     } catch (IOException e) {
                         throw new RuntimeException(e);
                     }
-                }).start(); // Запускаем обработку клиента
+                }).start();
             }
         } catch (IOException e) {
-            // Если сервер был остановлен намеренно — не выводим ошибку
             if (!ServerConnection.isServerRunning()) {
                 //System.out.println("Server stopped!");
             }
         }
     }
     private static void start(Socket clientSocker) throws IOException {
-        // Создаём объект для удобного общения с клиентом
         ServerConnection connection = new ServerConnection(clientSocker);
-
-        // Пока соединение открыто — читаем запросы
         while (!connection.isClosed()) {
             String receivedRequest;
             try {
                 receivedRequest = connection.getInput();
             } catch (IOException e) {
-                connection.close(); // если ошибка — закрываем соединение
+                connection.close();
                 break;
             }
             byte[] fileBytes = new byte[0];
@@ -77,19 +72,17 @@ public class Main {
                     fileBytes = getFile(receivedRequest);
                     break;
             }
-            // Отправляем клиенту ответ
-                if (receivedRequest.split("\\s+")[0].equals("GET")) {
-                    if (fileBytes != null) {
+            if (receivedRequest.split("\\s+")[0].equals("GET")) {
+                if (fileBytes != null) {
                     connection.sendMessage("200");//OK
                     connection.sendFile(fileBytes);
-                    }
-                } else {
-                    connection.sendMessage("404");//ERROR
                 }
-            // Закрываем соединение после обработки
-            connection.close();
+            } else {
+                connection.sendMessage("404");//ERROR
             }
+            connection.close();
         }
+    }
     private static String createFile(String receivedRequest, byte[] fileData) {
         String[] commands = receivedRequest.split(" ", 3);
         File path = new File("C:\\Users\\zange\\IdeaProjects\\File Server\\File Server\\task\\src\\server\\data");
@@ -160,7 +153,7 @@ public class Main {
         }
         int id = lastEntry.getKey() + 1;
         treeMap.put(id, file);
-        saveTheMap();//saves the map after every file creation
+        saveTheMap();
         return id;
     }
 
@@ -171,7 +164,6 @@ public class Main {
     private static void saveTheMap(){
         ObjectMapper mapper = new ObjectMapper();
         File file = new File("map.json");
-
         try{
             mapper.writerWithDefaultPrettyPrinter().writeValue(file, treeMap);
         } catch (IOException ignored){

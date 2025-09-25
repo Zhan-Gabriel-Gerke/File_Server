@@ -21,28 +21,28 @@ public class Main {
         } else if (actionString.equals("1") || actionString.equals("2") || actionString.equals("3")){
             action = Integer.parseInt(actionString);
         }
-        String nameKey = "";
-        String specialForlder = "";
+        String identifier = "";
+        String specialNameForFile = "";
         if (action == 1 || action == 3){
             System.out.printf("Do you want to %s the file by name or by id (1 - name, 2 - id): ", action == 1 ? "get" : "delete");
             int nameOrId = sc.nextInt();
             sc.nextLine();
             if (nameOrId == 1){
                 System.out.print("Enter filename: ");
-                nameKey = sc.nextLine();
+                identifier = sc.nextLine();
             } else if (nameOrId == 2){
                 System.out.print("Enter id: ");
-                nameKey = sc.nextLine();
+                identifier = sc.nextLine();
             }
         } else if (action == 2){
             System.out.print("Enter name of the file: ");
-            nameKey = sc.nextLine();
+            identifier = sc.nextLine();
             System.out.print("Enter name of the file to be saved on server: ");
-            specialForlder = sc.nextLine();
+            specialNameForFile = sc.nextLine();
         }
 
         if (action == 1 || action == 3){
-            String request = createRequest(action, nameKey);
+            String request = createRequest(action, identifier);
             try{
                 connection.sendMessage(request);
                 System.out.println("The request was sent.");
@@ -51,13 +51,13 @@ public class Main {
             }
         }
         else if (action == 2){
-            if (specialForlder.isEmpty()){
-                specialForlder = nameKey;
+            if (specialNameForFile.isEmpty()){
+                specialNameForFile = identifier;
             }
-            String request = createRequest(action, specialForlder);
+            String request = createRequest(action, specialNameForFile);
             try{
                 connection.sendMessage(request);
-                File finalFile = new File(file, nameKey);
+                File finalFile = new File(file, identifier);
                 //checker for file existence
                 byte[] dataBytes = Files.readAllBytes(finalFile.toPath());
                 connection.sendFile(dataBytes);
@@ -73,7 +73,7 @@ public class Main {
                 System.out.print("The file was downloaded! Specify a name for it:");
                 String name = sc.nextLine();
                 if (name.isEmpty()){
-                    name = nameKey;
+                    name = identifier;
                 }
                 Files.write(Paths.get(file.getPath(), name), byteFile);
             }
@@ -84,7 +84,7 @@ public class Main {
             String result = convertRespond(respond, action);
             System.out.println(result);
             connection.close();
-            }
+        }
     }
     public static String convertRespond(String respond, int action){
         String result = "";
@@ -115,22 +115,22 @@ public class Main {
         return result;
     }
 
-    public static String createRequest(int action, String name) {
+    public static String createRequest(int action, String identifier) {
         String request;
-        if (name.matches("\\d+")){
+        if (identifier.matches("\\d+")){
             request = switch (action) {
                 case 0 -> "EXIT";
-                case 1 -> "GET " + "BY_ID " + name;//2
-                case 2 -> "PUT" + " SPECIAL_NAME " + name;
-                case 3 -> "DELETE " + "BY_ID "+ name;//2
+                case 1 -> "GET " + "BY_ID " + identifier;//2
+                case 2 -> "PUT" + " SPECIAL_NAME " + identifier;
+                case 3 -> "DELETE " + "BY_ID "+ identifier;//2
                 default -> "ERROR";
             };
         }else{
             request = switch (action) {
                 case 0 -> "EXIT";
-                case 1 -> "GET " + "BY_NAME " + name;//2
-                case 2 -> "PUT" + " SPECIAL_NAME " + name;
-                case 3 -> "DELETE " + "BY_NAME "+ name;//2
+                case 1 -> "GET " + "BY_NAME " + identifier;//2
+                case 2 -> "PUT" + " SPECIAL_NAME " + identifier;
+                case 3 -> "DELETE " + "BY_NAME "+ identifier;//2
                 default -> "ERROR";
             };
         }
